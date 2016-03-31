@@ -1,37 +1,81 @@
 source("http://bioconductor.org/biocLite.R")
 biocLite("impute")
 library(impute)
+start <- function(pkg){
+  npkg <- pkg[!(pkg %in% installed.packages()[,"Package"])]
+  if (length(npkg))
+    install.packages(npkg, dependencies = TRUE)
+  lapply(pkg, require, character.only=TRUE)
+}
+
+pkgs <- c("lattic", "ggplot2")
+start(pkgs)
+
+# Load data ---------------------------------------------------------------
 
 allform <- read.delim("all_forms_PROACT_training.txt", sep = "|", header = T)
 ALSslope <- read.delim("ALSFRS_slope_PROACT_training.txt", sep = "|", header = T)
 surv_res <- read.delim("surv_response_PROACT_training.txt", sep = "|", header = T)
 
+
+
+# Subset data according to patients with known ALS slope -----------------------
+
 rem <- c("Adverse Event", "Concomitant Medication")
 subform <- allform[!(allform$form_name %in% rem), ]
 
-features <- levels(factor(subform$feature_name))
+ids <- as.data.frame(ALSslope$SubjectID)
+colnames(ids) <- c("SubjectID")
+fform <- merge(ids, subform, by="SubjectID", all.x=FALSE)
+fsurv <- merge(ids, surv_res, by="SubjectID", all.x=FALSE)
+
+
+
+
+# One feature one list ----------------------------------------------------
+
+features <- levels(factor(fform$feature_name))
 allvar = vector("list")
 for(i in features){
-  temp = subform[subform$feature_name == i,]
-  temp = temp[ , -which(names(temp) %in% c("form_name","feature_name"))]
-  for(j in 2:length(temp)){
-    temp[,j] = factor(temp[,j])
+  tmp = fform[fform$feature_name == i,]
+  tmp = tmp[ , -which(names(tmp) %in% c("form_name","feature_name"))]
+  for(j in 2:length(tmp)){
+    tmp[,j] = factor(tmp[,j])
   }
-  allvar[[i]] <- temp[temp$feature_value!="-",]
+  allvar[[i]] <- tmp[tmp$feature_value!="-",]
+}
+
+
+
+
+# Subset features with the portion of missing values less than .25 --------
+
+
+for(n in 1:length(allvar)){
+  pmissing[n] <- sum(is.na(allvar[[n]]))/length(allvar[[n]])  
 }
 
 subfeat = c("Lymphocytes","Basophils","Monocytes","Total Cholesterol","Gamma-glutamyltransferase","CK","height","Red Blood Cells (RBC)","White Blood Cell (WBC)","Urine Ph","Bicarbonate","if_use_Riluzole","Q10_Respiratory","respiratory_rate","Calcium","Phosphorus","Platelets","Alkaline Phosphatase","bp_diastolic","bp_systolic","pulse","treatment_group","Hematocrit","Hemoglobin","Chloride","fvc","fvc_normal","fvc_percent","Potassium","Q5a_Cutting_without_Gastrostomy","Sodium","AST(SGOT)","Blood Urea Nitrogen (BUN)","Creatinine","ALT(SGPT)","Bilirubin (Total)","onset_delta","Age","ALSFRS_Total","Gender","hands","leg","mouth","onset_site","Q1_Speech","Q2_Salivation","Q3_Swallowing","Q4_Handwriting","Q5_Cutting","Q6_Dressing_and_Hygiene","Q7_Turning_in_Bed","Q8_Walking","Q9_Climbing_Stairs","Race","respiratory","trunk","weight")
 
-patients = c()
+
+
+
+# Patient IDs -------------------------------------------------------------
+
+patients= c()
 for(i in subfeat){
   featTable = allvar[[i]]
   patient_sub = names(table((featTable$SubjectID)))
   patients = union(patients, patient_sub)
 }
 
+
+
+
+# Impute NAs ------------------------------------
+
 catfeat = c("Race", "onset_site", "Gender", "treatment_group", "if_use_Riluzole")
 numfeat = setdiff(subfeat, catfeat)
-
 
 mode <- function(x){
   v = na.omit(as.vector(unlist(x)))
@@ -103,8 +147,6 @@ write.csv(out, file="sin.csv", row.names=FALSE)
 
 out=read.csv("sin.csv")
 
-### impute singular values: KNN based
-
 v_num = make.names(numfeat)
 v_cat = make.names(catfeat)
 
@@ -116,23 +158,6 @@ numTab = allslope[v_num]
 numMat = as.matrix(numTab)
 ki = impute.knn(data=numMat, rng.seed=100)
 
-kidat = ki$data
-rightSkewed = c("Gamma.glutamyltransferase", "CK", "Red.Blood.Cells..RBC.", "Urine.Ph", "AST.SGOT.", "ALT.SGPT.", "Bilirubin..Total.")
-leftSkewed = c("onset_delta", "hands", "leg", "mouth", "respiratory", "trunk", "ALSFRS_Total")
-for(i in 1:length(kidat[1,])){
-  currentFeature = kidat[,i]
-  f = colnames(kidat)[i]
-  if(f %in% rightSkewed){
-    l_offs = abs(min(currentFeature)) + 1
-    currentFeature = scale(log(currentFeature+l_offs))
-  } else if(f %in% leftSkewed){
-    currentFeature = scale(currentFeature^3)
-  } else{
-    currentFeature = scale(currentFeature)
-  }
-  kidat[,i] = currentFeature
-}
-
 catTab = allslope[v_cat]
 for(i in colnames(catTab)){
   cur_col = unlist(catTab[i])
@@ -141,8 +166,50 @@ for(i in colnames(catTab)){
   catTab[i] = as.factor(cur_col)
 }
 
+
+
+# Represent distributions -------------------------------------------------
+
+kidat = as.data.frame(ki$data)
+hist(kidat[,1])
+plot(density(kidat[,2]))
+boxplot(kidat[,3])
+bwplot(kidat[,4])
+ggplot(kidat, aes(kidat[,5])) +
+  geom_boxplot()
+
+
+
+# Transform skewed features -----------------------------------------------
+
+posSkewed = c("Gamma.glutamyltransferase", "CK", "Red.Blood.Cells..RBC.", "Urine.Ph", "AST.SGOT.", "ALT.SGPT.", "Bilirubin..Total.")
+negSkewed = c("onset_delta", "hands", "leg", "mouth", "respiratory", "trunk", "ALSFRS_Total")
+for(i in 1:length(kidat[1,])){
+  currentFeature = kidat[,i]
+  f = colnames(kidat)[i]
+  if(f %in% posSkewed){
+    currentFeature = scale(sqrt(currentFeature))
+    # currentFeature = scale(log10(currentFeature))
+    # currentFeature = scale(1/currentFeature)
+  } else if(f %in% negSkewed){
+    currentFeature = scale(currentFeature^2)
+    # currentFeature = scale(currentFeature^3)
+    # currentFeature = scale(currentFeature^4)
+  } else{
+    currentFeature = scale(currentFeature)
+  }
+  kidat[,i] = currentFeature
+}
+
+
+
+
+# Combine -----------------------------------------------------------------
+
 nnslope = data.frame(allslope$SubjectID, allslope$ALSFRS_slope, kidat, catTab)
 colnames(nnslope)[1:2] = c("SubjectID","ALSFRS_slope")
+
+
 
 
 ### dummy coding
@@ -176,7 +243,8 @@ for(i in v_cat){
 
 
 
-### prepare cleaned data files
+
+### Save
 
 dum_tab = merge(transformed_tab, surv_res, by="SubjectID", all.x = FALSE)
 save(dum_tab, file="dum.rData")
