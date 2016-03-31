@@ -8,7 +8,7 @@ start <- function(pkg){
   lapply(pkg, require, character.only=TRUE)
 }
 
-pkgs <- c("lattic", "ggplot2")
+pkgs <- c("lattice", "ggplot2")
 start(pkgs)
 
 # Load data ---------------------------------------------------------------
