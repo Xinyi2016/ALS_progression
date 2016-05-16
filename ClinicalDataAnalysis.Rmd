@@ -1,0 +1,145 @@
+---
+title: "Graphical data analysis 1"
+output: html_document
+---
+
+```{r}
+load("out.rData")
+library(ggplot2)
+```
+
+## SubjectID
+
+One subjectID for each patient
+
+## Mineral balance
+
+**Calcium** routine metabolic panel to assess kidney, bone, or nerve disease. Normal ranges are 2.2-2.5 mmol/L
+
+**Phosphorus** Associated with kidney function, nutritional status, and a variety of chronic illnesses. Normal ranges are 1-1.5 mmol/L.
+
+```{r}
+summary(out$Calcium)
+
+ggplot(na.omit(out), aes(na.omit(out$Calcium))) +
+  geom_histogram(aes(y=..density..), binwidth=0.01, fill="lightblue") +
+  geom_density() +
+  geom_vline(xintercept=c(2.2,2.5)) +
+  ylab("") +
+  xlab(" Calcium level mmol/L")
+
+ggplot(na.omit(out), aes(na.omit(out$Phosphorus))) +
+  geom_histogram(aes(y=..density..), binwidth=0.01, fill="lightblue") +
+  geom_density() +
+  geom_vline(xintercept=c(1,1.5)) +
+  ylab("") +
+  xlab("Phosphorus level mmol/L")
+```
+
+## Blood count
+
+**Red Blood Cells (RBC)** A count of the actual number of red blood cells per volume of blood. Both increases and decreases lead to abnormal conditions. Normal ranges are 4.2 - 6.9 $\times 10^9$/L.
+
+[127] "RBC Distribution Width"                   
+[128] "RBC Morphology"                           
+[129] "RBC Morphology: Anisocytosis"             
+[130] "RBC Morphology: Macrocytosis"             
+[131] "RBC Morphology: Microcytosis"             
+[132] "RBC Morphology: Spherocytes"              
+[133] "Red Blood Cells (RBC)"     
+
+```{r}
+boxplot(out[,133], horizontal=TRUE, pch=5, xlab="Red Blood Cells (L)")
+```
+
+Substantially positive skewness is observed. So transformation methods will be applied and selected for further analysis.
+
+```{r}
+rbc <- out[,133]
+trans1 = sqrt(rbc)
+trans2 = log10(rbc)
+trans3 = 1/rbc
+
+par(mfrow=c(1,3))
+qqnorm(trans1, main="Square root", pch=15)
+qqnorm(trans2, main="Logarithmic", pch=15)
+qqnorm(trans3, main="Reciprocal", pch=15)
+```
+
+## ALS Functional Rating Scale (ALSFRS)
+
+The ALSFRS scale is a list of 10 assessments regarding motor function to assess symptom severity, with each measure ranging from 0 to 4, with 4 being the highest (normal function) and 0 being no function. The score for the individual questions are then summed together to generate a number, and that is the ALSFRS score.
+
+In ALSFRS-R, the modified version of ALSFRS, assessment 10 (respiratory function) is further divided into three questions to better reflect the importance (weighting) of respiratory changes within the scale. 
+
+[14] "ALSFRS_R _Total"                           
+[15] "ALSFRS_Total" 
+
+[111] "Q1_Speech"                                
+[112] "Q10_Respiratory"                          
+[113] "Q2_Salivation"                            
+[114] "Q3_Swallowing"                            
+[115] "Q4_Handwriting"                           
+[116] "Q5_Cutting"                               
+[117] "Q5a_Cutting _without _Gastrostomy"          
+[118] "Q5b_Cutting _with _Gastrostomy"             
+[119] "Q6_Dressing _and _Hygiene"                  
+[120] "Q7_Turning _in _Bed"                        
+[121] "Q8_Walking"                               
+[122] "Q9_ Climbing_Stairs"   
+
+```{r}
+par(mfrow=c(1,1))
+boxplot(out[,14], horizontal=TRUE, pch=5, xlab="Summed scores in ALSFRS assessments")
+```
+
+ALSFRS score is negatively skewed in a slight manner. So transformation methods will be applied and selected for further analysis.
+
+```{r}
+frs <- out[,14]
+trans1 = frs^2
+trans2 = frs^3
+trans3 = frs^4
+
+par(mfrow=c(1,3))
+qqnorm(trans1, main="Squared", pch=15)
+qqnorm(trans2, main="Cubed", pch=15)
+qqnorm(trans3, main="To the fourth", pch=15)
+```
+
+## Lung function measures
+
+**Forced vital capacity (FVC)** the volume of air that can forcibly be blown out after full inspiration, measured in liters. 
+
+FVC Normal: the expected value for a non-ALS patient (control) matched by gender, age and height)
+
+FVC percent: divide FVC liters by FVC normal
+
+ [53] "fvc"                                      
+ [54] "fvc_normal"                               
+ [55] "fvc_percent"  
+
+**Slow vital capacity** the maximum volume of air that can be exhaled slowly after slow maximum inhalation, measured in liters.
+
+[142] "svc"                                      
+[143] "svc_normal"                               
+[144] "svc_percent" 
+
+```{r}
+summary(out$fvc_percent)
+summary(out$svc_percent)
+```
+
+
+## Treatment group
+
+Some patients received placebo treatments, while others received experimental treatments (medication).
+
+```{r}
+out$treatment_group[is.na(out$treatment_group)] <- "Unknown"
+lv <- levels(factor(out$treatment_group))
+
+ggplot(out, aes(out$fvc_percent, fill=out$treatment_group)) +
+  geom_density(alpha=.6)
+```
+

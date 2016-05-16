@@ -1,0 +1,34 @@
+---
+title: "Graphical data analysis 2"
+output: html_document
+---
+
+```{r}
+load("out.rData")
+library(ggplot2)
+library(gridExtra)
+```
+
+## All categorical data
+
+```{r}
+catfeat <- c("Gender", "if_use_Riluzole", "onset_site", "Race", "treatment_group")
+table(out$Gender)
+table(out$if_use_Riluzole)
+table(out$treatment_group)
+
+sum(is.na(out$if_use_Riluzole))
+
+population <- ggplot(out) +
+  ylab("")
+gd <- population + aes(Gender) + geom_bar(fill="#cfffb7")
+rz <- population + aes(if_use_Riluzole) + geom_bar(fill="#ff9999")
+st <- population + aes(onset_site) + geom_bar(fill="#f7fff5")
+tr <- population + aes(treatment_group) + geom_bar(fill="#cde0e7")
+
+grid.arrange(gd,rz,st,tr,nrow=1, widths=c(2,2,3,2))
+```
+
+## Modelling and testing for categorical data
+
+1. Testing by simulation

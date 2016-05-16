@@ -1,0 +1,39 @@
+---
+title: "Contiuous Variables"
+output: html_document
+---
+
+## Features
+
+**Multimodality**
+
+The distribution has more than one peaks.
+
+**Asymmetry**
+
+The distribution is skewed to the left or right.
+
+**Rounding**
+
+Only certain values can be found
+
+**Outliers**
+
+Values far from the rest of the data.
+
+**Impossibilities**
+
+Values outside the feasible range.
+
+**Errors**
+
+Wrong values.
+
+**Gaps**
+
+Ranges of values where no case is recorded within the data
+
+**Heaping**
+
+Values that occur unexpectedly frequent.
+
