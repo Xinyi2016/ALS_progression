@@ -1,15 +1,3 @@
-source("http://bioconductor.org/biocLite.R")
-biocLite("impute")
-library(impute)
-start <- function(pkg){
-  npkg <- pkg[!(pkg %in% installed.packages()[,"Package"])]
-  if (length(npkg))
-    install.packages(npkg, dependencies = TRUE)
-  lapply(pkg, require, character.only=TRUE)
-}
-
-pkgs <- c("lattice", "ggplot2")
-start(pkgs)
 
 # Load data ---------------------------------------------------------------
 
